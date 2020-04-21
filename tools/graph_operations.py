@@ -239,6 +239,74 @@ def fast_closeness(G, kind = 'edge', weight=None, norm=True):
 def fast_shortest_paths_dijkstra(G, od_pairs, weights=None):
     pass
 
+def gini(values, weights=None):
+    """Calculate the Gini coefficient of a numpy array."""
+    # addapted from https://github.com/oliviaguest/gini
+    # based on bottom eq: http://www.statsdirect.com/help/content/image/stat0206_wmf.gif
+    # from: http://www.statsdirect.com/help/default.htm#nonparametric_methods/gini.htm
+    if weights == None:
+        array = np.array(values) #all values are treated equally
+    else:
+        if type(weights) != list:
+            raise ValueError('weights must be a list')
+        elif len(weights)!=len(values):
+            raise ValueError('values and weights must be lists of same size')
+        array = []
+        for val, weight in zip(values, weights):
+            array = array + [val]*weight
+        array = np.array(array) 
+    if np.amin(array) < 0:
+        array -= np.amin(array) #values cannot be negative
+    array += 0.0000001 #values cannot be 0
+    array = np.sort(array) #values must be sorted
+    index = np.arange(1,array.shape[0]+1) #index per array element
+    n = array.shape[0]#number of array elements
+    return ((np.sum((2 * index - n  - 1) * array)) / (n * np.sum(array))) #Gini coefficient
+
+def concentration(values, upper_strata=1, weights=None):
+    # upper_strata in percentage
+    if weights != None:
+        if type(weights) != list:
+            raise ValueError('weights must be a list')
+        elif len(weights)!=len(values):
+            raise ValueError('values and weights must be lists of same size')
+        array = []
+        for val, weight in zip(values, weights):
+            array = array + [val]*weight
+        array = np.array(array)
+        array
+    else:
+        array = np.array(values)
+    array = np.sort(array)
+    upper_concentration = array[-int(upper_strata/100*len(values)):].sum()
+    lower_strata = ((array.cumsum() <= upper_concentration)*1).sum()
+    lower_strata = (lower_strata+1)/len(array)*100
+    return (lower_strata/upper_strata)
+    
+
+def get_attr_gini_coef(G, attribute, weight=None, kind = 'edge'):
+    if kind == 'edge':
+        attrs = [attr for n1, n2, attr in G.edges(data=attribute)]
+        if weight != None:
+            weight = [int(attr) for n1, n2, attr in G.edges(data=weight)]
+    elif kind == 'node':
+        attrs = [attr for n, attr in G.nodes(data=attribute)]
+        if weight != None:
+            weight = [int(attr) for n, attr in G.nodes(data=weight)]
+    return gini(attrs, weights = weight)
+
+def get_attr_concentration_coef(G, attribute, upper_strata=1, weight=None, kind = 'edge'):
+    if kind == 'edge':
+        attrs = [attr for n1, n2, attr in G.edges(data=attribute)]
+        if weight != None:
+            weight = [int(attr) for n1, n2, attr in G.edges(data=weight)]
+    elif kind == 'node':
+        attrs = [attr for n, attr in G.nodes(data=attribute)]
+        if weight != None:
+            weight = [int(attr) for n, attr in G.nodes(data=weight)]
+    return concentration(attrs, weights = weight)
+    
+
 def _dif_angle(a, b, c):
     """
     Gets angle difference

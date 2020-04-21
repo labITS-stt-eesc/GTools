@@ -9,5 +9,6 @@ from tools.graph_operations import *
 from tools.city_graphs import *
 from tools.resilience import *
 from tools.od import *
+from tools.simulation import *
 
 __version__ = '0'

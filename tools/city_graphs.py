@@ -7,6 +7,8 @@ Created on Tue Apr 11 15:05:17 2020
 
 import pickle
 import igraph as ig
+import pandas as pd
+import numpy as np
 import networkx as nx
 import osmnx as ox
 import os
@@ -177,7 +179,7 @@ def graph_from_point(point, buffer=0, buffer_type='circle', network_type='all_pr
         poly = circle_from_lat_lon(*point, buffer)
         G = ox.graph_from_polygon(poly, network_type=network_type, **osmnx_query_kws)
     elif buffer_type=='square':
-        G = ox.graph_from_point(point, network_type=network_type, **osmnx_query_kws)
+        G = ox.graph_from_point(point, distance=buffer, network_type=network_type, **osmnx_query_kws)
     G.graph['kind'] = 'primal'
     if dual:
         G = get_dual(G)
@@ -282,8 +284,39 @@ def add_traffic_zones_to_nodes(G, gdf, zone_column):
             G.nodes[node]['zone']=None
     return G
 
+def _reverse_bearing(x):
+    return x + 180 if x < 180 else x - 180
 
-def _save_pickle_file(G,fname, extention):
+def _count_and_merge(n, bearings):
+    # make twice as many bins as desired, then merge them in pairs
+    # prevents bin-edge effects around common values like 0° and 90°
+    n = n * 2
+    bins = np.arange(n + 1) * 360 / n
+    count, _ = np.histogram(bearings, bins=bins)
+    
+    # move the last bin to the front, so eg 0.01° and 359.99° will be binned together
+    count = np.roll(count, 1)
+    return count[::2] + count[1::2]
+
+def get_orientation_entropy(G, weight=None):
+    Gu = ox.add_edge_bearings(ox.get_undirected(G))
+
+    if weight != None:
+        # weight bearings by NUMERIC attribute
+        city_bearings = []
+        for u, v, k, d in Gu.edges(keys=True, data=True):
+            city_bearings.extend([d['bearing']] * int(d[weight]))
+        b = pd.Series(city_bearings)
+        bearings = pd.concat([b, b.map(_reverse_bearing)]).reset_index(drop='True')
+    else:
+        # don't weight bearings, just take one value per street segment
+        b = pd.Series([d['bearing'] for u, v, k, d in Gu.edges(keys=True, data=True)])
+        bearings = pd.concat([b, b.map(_reverse_bearing)]).reset_index(drop='True')
+    counts = _count_and_merge(36,bearings)
+    probs = counts/counts.sum()
+    return (-np.log(probs)*probs).sum()
+
+def save_pickle_file(G,fname, extention):
     """
     Saves graph into a pickle.
 
