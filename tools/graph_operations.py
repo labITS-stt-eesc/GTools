@@ -94,7 +94,10 @@ def get_dual(G, node_to_edge='first'):
     Transforms a NetworkX primal graph into a NetworkX dual graph.
     This function keeps edge properties in the nodes of dual graph
     and adds angular weights, keeping the x and y central positions 
-    of edges so this graph can be plotted with OSMnx.
+    of edges so this graph can be plotted with OSMnx. 
+    
+    obs: This function is partially based on previous work by 
+    Alceu Dal Bosco Jr.
 
     Parameters
     ----------
@@ -150,7 +153,7 @@ def get_dual(G, node_to_edge='first'):
                             (G_.nodes[e1[1]]['x'],G_.nodes[e1[1]]['y']), 
                             (G_.nodes[e2[1]]['x'],G_.nodes[e2[1]]['y']))
         if ang_dif == 0:
-            ang_dif += .01
+            ang_dif += .0001 #avoid null values
         Gd.edges[(e1,e2,l)]['ang_dif'] = ang_dif
     Gd.graph['kind'] = 'dual'
     return Gd
